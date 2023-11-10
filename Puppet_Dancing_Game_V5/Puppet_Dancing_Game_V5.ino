@@ -1,7 +1,5 @@
-//#include <Wire.h>
-//#include <SPI.h>
-//#include <SD.h>
-//#include <SerialFlash.h>
+//Author: Mark Matamoros
+//Teensy audio playback example reference: Playing Music Example
 
 /**********Pulled from Teensy's (Part_1_03) Playing Music Example**********/
 #include <Audio.h>
@@ -21,7 +19,7 @@ AudioControlSGTL5000     sgtl5000_1;
 #define SDCARD_MOSI_PIN  7
 #define SDCARD_SCK_PIN   14
 /**************************************************************************/
-
+//ticket counter for dispensing e-tickets
 int tCounter = 0;
 
 //Pin assignments
@@ -29,12 +27,12 @@ int buttonInputPins[] = {0, 1, 2, 3, 4, 5, 9, 14};
 int buttonLightPins[] = {16, 17, 22, 24, 25, 26, 27, 28};
 int solenoidPins[] = {29, 30, 31, 32, 33, 34, 35, 36};
 
-int semnoxPlayerCountInput = 37;
-int semnoxTicketOutputPin = 38;
-int semnoxTicketPulseOutput = 39;
+int semnoxPlayerCountInput = 37;  //Input pin player count handling (from Semnox)
+int semnoxTicketOutputPin = 38;   //Initiates e-ticket vending
+int semnoxTicketPulseOutput = 39; //Output pulses for dispensing ticket count
 
-int playerOneSpotLight = 40;
-int playerTwoSpotLight = 41;
+int playerOneSpotLight = 40;      //Mini puppet spotlight triggering
+int playerTwoSpotLight = 41;      //Mini puppet spotlight triggerin
 
 //test time (ms) during initialization
 int buttonLightSolenoidTestTime = 2000;
@@ -44,8 +42,9 @@ boolean startGame = false;  //dictates the triggering of a new game
 unsigned long initialGameStartTime = 0;   //stores game start time (ms)
 unsigned long currentTime = 0;       //holds button trigger time
 
-int parsedSongHolder[300][9];
+int parsedSongHolder[300][9];   //temporarily holds light triggering (timing) values
 
+//holds light triggering (timing) values per each song - needs refactoring
 int parsedSongText1[300][9];
 int parsedSongText2[300][9];
 int parsedSongText3[300][9];
@@ -67,22 +66,23 @@ int parsedSongText18[300][9];
 int parsedSongText19[300][9];
 int parsedSongText20[300][9];
 
-int parsedSongText21[300][9];
+int parsedSongText21[300][9];   //holds "attract" song (solenoid) triggering information
 
-int eLoc = 0;
-int bOffset = 625;
-int aOffset = 250;
+int eLoc = 0;           //element location within parsedSongText for button light/scoring handling
+int bOffset = 625;      //"window" beginning of active button lights  
+int aOffset = 250;      //"window" ending of active button lights
 
-int winPointsPlayer1 = 0;
+int winPointsPlayer1 = 0;         //holds successful trigger points
 int winPointsPlayer2 = 0;
 int failurePointsPlayer1 = 0;     //count for incorrect button triggering
 int failurePointsPlayer2 = 0;
-int totalGamePointsPlayer1 = 0;          //holds the expected total amount of button triggering for the song
+int totalGamePointsPlayer1 = 0;   //holds the expected total amount of button triggering for the song
 int totalGamePointsPlayer2 = 0;
-float percentageCorrectPlayer1 = 0;
+float percentageCorrectPlayer1 = 0;   //holds per the percentage of successful triggers
 float percentageCorrectPlayer2 = 0;
 float totalScorePercentage = 0;
 
+//holds the count of missed button triggers
 int buttonMissedPlayer1 = 0;
 int buttonMissedPlayer2 = 0;
 
@@ -108,54 +108,71 @@ int secondArrayDimension = 0;
 
 int serialFlag = 0;   //monitor the establishing of a serial connection
 
+//spotlight and audio playback handling
 boolean turnOffLightsOnceFlag = true;
 boolean playSongFlag = true;
 
-int pauseForIntroMusic = 5000;
+int pauseForIntroMusic = 5000;  //holds pause time (ms) before song playback - SD card parameter
 
-boolean attractMode = true;
-boolean attractModeNotificationFlag = true;
+//attract mode handling
+boolean attractMode = true;                     
+boolean attractModeNotificationFlag = true;     
 boolean beginAttractModeSong = true;
-unsigned long timeBetweenGames = 0;
 unsigned long triggerAttractModeTime = 10000;
 
+unsigned long timeBetweenGames = 0;   //holds the time between game instances - for attract mode
+
+//for solenoid handling
 boolean activateSolenoidFlag = true;
 unsigned long startTime = 0;
 
-boolean freestyleModeOn = true;
+boolean freestyleModeOn = true;   //dictates whether scoring is active/inactive
 
+//holds songs for game audio playback
 char songTitleStringArray[21][9] = {{"1.wav"}, {"2.wav"}, {"3.wav"}, {"4.wav"}, {"5.wav"},
                                    {"6.wav"}, {"7.wav"}, {"8.wav"}, {"9.wav"}, {"10.wav"},
                                    {"11.wav"}, {"12.wav"}, {"13.wav"}, {"14.wav"}, {"15.wav"},
                                    {"16.wav"}, {"17.wav"}, {"18.wav"}, {"19.wav"}, {"20.wav"},
                                    {"21.wav"}};
 
+//for gameplay song randomization (if this SD text file option is selected)
 int randomizeSongs = 0;
 boolean randomSelectionOn = false;
 int randomSongNumber = 0;
 int songCounter = 0;
 
+//game win percentage, modifiable with SD card text file
 float percentageCorrect = 80.0;
 
+//holds text file parameters for gameplay modifications
 int userParameters[] = {0, 0, 0, 0, 0, 0, 0, 0};
 int parameterCounter = 0;
 
+//handles player count selection 
 boolean listenToSemnoxPlayerCount = true;
 int playerCount = 0;
 unsigned long firstImpulseTime = 0;
 boolean onePlayerGame = false;
 boolean twoPlayerGame = false;
 
+//for e-tiketing dispensing via pulse 
 int highInputFlag = 1;
 int pwOffset = 140;
 
+//e-ticket dispensing
 boolean onePlayerWins = false;
 boolean twoPlayersTie = false;
 int ticketPulseCount = 50;
 int ticketPulseDelayTime = 130;
 
+//holds additional credits triggered after gameplay activation
 int extraCredit = 0;
 
+
+/*****************************************************
+  Function: setup()
+    - Initializes the game prior to gameplay
+******************************************************/
 void setup()
 {
   delay(1000);
@@ -177,6 +194,10 @@ void setup()
   ParseSongFiles();
 }
 
+/*****************************************************
+  Function: loop()
+    - Handles gameplay flow/logic
+******************************************************/
 void loop()
 {
   if (listenToSemnoxPlayerCount == true)
@@ -187,49 +208,7 @@ void loop()
   //listen for game start triggering
   if (((onePlayerGame || twoPlayerGame) || extraCredit > 0) && newGameFlag == 0)
   {
-    if (extraCredit > 0)
-    {
-      extraCredit--;
-      twoPlayerGame = true;
-    }
-
-    Serial.print("\nCredit(s) Left: ");
-    Serial.println(extraCredit);
-    Serial.println("");
-    
-    Serial.println("\nStop Attract Mode");
-    digitalWrite(playerOneSpotLight, LOW);
-    digitalWrite(playerTwoSpotLight, LOW);
-
-    eLoc = 0;
-
-    Serial.println("Sending Stop Signal");
-    StopAttractMode();
-
-    randomlySelectSong();
-
-    initialGameStartTime = millis() + pauseForIntroMusic;
-    startGame = true;
-    newGameFlag = 1;
-    attractMode = false;
-    attractModeNotificationFlag = false;
-    beginAttractModeSong = false;
-    playSongFlag = true;
-    highInputFlag = 1;
-
-    if (onePlayerGame == true)
-    {
-      Serial.println("Turn on Spotlight One");
-      digitalWrite(playerOneSpotLight, HIGH);
-      digitalWrite(playerTwoSpotLight, LOW);
-    }
-
-    if (twoPlayerGame == true)
-    {
-      Serial.println("Turn on Spotlights One and Two");
-      digitalWrite(playerOneSpotLight, HIGH);
-      digitalWrite(playerTwoSpotLight, HIGH);
-    }
+    HandleGameStart();
   }
 
   //game logic sequence
@@ -264,51 +243,7 @@ void loop()
 
   if (attractMode)
   {
-    if (attractModeNotificationFlag)
-    {
-      Serial.println("\nEntering Attract Mode State");
-
-      CopyTimeArray(parsedSongText21);
-      playSongFlag = true;
-
-      timeBetweenGames = millis();
-
-      attractModeNotificationFlag = false;
-      Serial.println("Attract Mode Time: " + (String)triggerAttractModeTime + " ms");
-    }
-
-    if ((millis() - timeBetweenGames) > triggerAttractModeTime)
-    {
-      if (beginAttractModeSong)
-      {
-        Serial.println("Begin Attract Mode");
-        initialGameStartTime = millis();
-
-        PlaySong(songTitleStringArray[20]);
-        //digitalWrite(playerOneSpotLight, HIGH);
-        //digitalWrite(playerTwoSpotLight, HIGH);
-
-        beginAttractModeSong = false;
-        activateSolenoidFlag = true;
-      }
-
-      ActivateSolenoids();
-      DeactivateSolenoids();
-
-      if(playSdWav1.isPlaying() == false)
-      {
-        digitalWrite(playerOneSpotLight, LOW);
-        digitalWrite(playerTwoSpotLight, LOW);
-
-        delay(100);
-
-        HandleGameEndAndReset();
-
-        attractMode = true;
-        attractModeNotificationFlag = true;
-        beginAttractModeSong = true;
-      }
-    }
+    HandleAttractMode();
   }
 }
 
@@ -653,7 +588,7 @@ void PullSongTxtFile(char txtFile[], int timeArrayy[][9])
 
 /*****************************************************
   Function: PlaySong
-    -
+    -handles gameplay song playback
 *****************************************************/
 void PlaySong(char wavFile[])
 {
@@ -753,8 +688,8 @@ void HandleGameEndAndReset()
 }
 
 /*****************************************************
-  Function: AutomateSolenoids
-    -
+  Function: ActivateSolenoids
+    - handles solenoid firing during gameplay
 *****************************************************/
 void ActivateSolenoids()
 {
@@ -789,7 +724,7 @@ void ActivateSolenoids()
 
 /*****************************************************
   Function: DeactivateSolenoids
-    -
+    - disable all solenoid firing
 *****************************************************/
 void DeactivateSolenoids()
 {
@@ -806,10 +741,11 @@ void DeactivateSolenoids()
   }
 }
 
-/*****************************************************
+/*************************************************************
   Function: StopAttractMode();
-    -
-*****************************************************/
+    - stop attract mode song playback and deactivate
+      all solenoids (redundent) and button lights (redundant)
+**************************************************************/
 void StopAttractMode()
 {
   for (int i = 0; i < sizeof(solenoidPins) / sizeof(int); i++)
@@ -829,7 +765,7 @@ void StopAttractMode()
 
 /*****************************************************
   Function: CopyTimeArray()
-    -
+    - copies song-specific trigger times for gameplay
 *****************************************************/
 void CopyTimeArray(int timeArray[][9])
 {
@@ -844,7 +780,7 @@ void CopyTimeArray(int timeArray[][9])
 
 /****************************************************
    Function: PullUserParamterFiles()
-    -
+    - handles user-defined parameters within SD card
  ****************************************************/
 void PullUserParameterFiles()
 {
@@ -923,10 +859,11 @@ void PullUserParameterFiles()
   }
 }
 
-/****************************************************
+/*******************************************************************
    Function: randomlySelectSong()
-    -
- ****************************************************/
+    - handles random song selection and gameplay trigger time prep
+    - needs refactoring
+ ******************************************************************/
 void randomlySelectSong()
 {
   if (randomSelectionOn)
@@ -1029,10 +966,11 @@ void randomlySelectSong()
   }
 }
 
-/****************************************************
-   Function: PullUserParamterFiles()
-    -
- ****************************************************/
+/************************************************************************
+   Function: ParseSongFiles()
+    - Calls for the parsing of every gameplay songfile's trigger times
+    - needs refactoring
+ ***********************************************************************/
 void ParseSongFiles()
 {
   for (int i = 0; i < 300; i++)
@@ -1154,36 +1092,18 @@ void ParseSongFiles()
 
 /****************************************************
    Function: PullUserParamterFiles()
-    -
+    - Needs to be integrated within "loop"
  ****************************************************/
 void PlaySongBasedOnSelection()
 {
   PlaySong(songTitleStringArray[randomSongNumber]);
-  /*switch (randomSongNumber)
-  {
-    case 0:
-      PlaySong(songTitleStringArray[randomSongNumber]);
-      //Serial.println("Loading Song 1");
-      break;
-    case 1:
-      PlaySong(songTitleStringArray[randomSongNumber]);
-      //Serial.println("Loading Song 2");
-      break;
-    case 2:
-      PlaySong(songTitleStringArray[randomSongNumber]);
-      //Serial.println("Loading Song 3");
-      break;
-    case 3:
-      PlaySong(songTitleStringArray[randomSongNumber]);
-      //Serial.println("Loading Song 4");
-      break;
-  }*/
 }
 
 
 /****************************************************
    Function: HandleSemnoxPlayerCount()
-    -
+    - handles incoming pulses from the Semnox unit
+    - determines if it's a one or two player game
  ****************************************************/
 void HandleSemnoxPlayerCount()
 {
@@ -1219,10 +1139,11 @@ void HandleSemnoxPlayerCount()
   }
 }
 
-/****************************************************
+/*****************************************************************
    Function: HandleTicketPayout()
-    -
- ****************************************************/
+    - generates pulses for ticket dispensing (based on scoring)
+    - connects directly to the Semnox unit
+ ***************************************************************/
 void HandleTicketPayout()
 {
   if (onePlayerGame == true || twoPlayerGame == true)
@@ -1282,7 +1203,8 @@ void HandleTicketPayout()
 
 /****************************************************
   Function: HandleExtraCredits()
-    -place in game loop
+    - Adds game credits if the user interacts with 
+     the Semnox unit during gameplay
 ****************************************************/
 void HandleExtraCredits()
 {
@@ -1304,5 +1226,113 @@ void HandleExtraCredits()
     
     highInputFlag = 1;
   }
+}
+
+
+/*****************************************************
+  Function: HandleGameStart
+    - Handles extra credits, attract mode termination, 
+      game start timing, and player one/two setup 
+      (currently set for 1-player only)s 
+*****************************************************/
+void HandleGameStart()
+{
+  if (extraCredit > 0)
+    {
+      extraCredit--;
+      twoPlayerGame = true;
+    }
+
+    Serial.print("\nCredit(s) Left: ");
+    Serial.println(extraCredit);
+    Serial.println("");
+    
+    Serial.println("\nStop Attract Mode");
+    digitalWrite(playerOneSpotLight, LOW);
+    digitalWrite(playerTwoSpotLight, LOW);
+
+    eLoc = 0;
+
+    Serial.println("Sending Stop Signal");
+    StopAttractMode();
+
+    randomlySelectSong();
+
+    initialGameStartTime = millis() + pauseForIntroMusic;
+    startGame = true;
+    newGameFlag = 1;
+    attractMode = false;
+    attractModeNotificationFlag = false;
+    beginAttractModeSong = false;
+    playSongFlag = true;
+    highInputFlag = 1;
+
+    if (onePlayerGame == true)
+    {
+      Serial.println("Turn on Spotlight One");
+      digitalWrite(playerOneSpotLight, HIGH);
+      digitalWrite(playerTwoSpotLight, LOW);
+    }
+
+    if (twoPlayerGame == true)
+    {
+      Serial.println("Turn on Spotlights One and Two");
+      digitalWrite(playerOneSpotLight, HIGH);
+      digitalWrite(playerTwoSpotLight, HIGH);
+    }
+}
+
+
+/***********************************************************************
+  Function: HandleAttractMode
+    - Handles audio playback and solenoid triggering during attract mode
+************************************************************************/
+void HandleAttractMode()
+{
+    if (attractModeNotificationFlag)
+    {
+      Serial.println("\nEntering Attract Mode State");
+
+      CopyTimeArray(parsedSongText21);
+      playSongFlag = true;
+
+      timeBetweenGames = millis();
+
+      attractModeNotificationFlag = false;
+      Serial.println("Attract Mode Time: " + (String)triggerAttractModeTime + " ms");
+    }
+
+    if ((millis() - timeBetweenGames) > triggerAttractModeTime)
+    {
+      if (beginAttractModeSong)
+      {
+        Serial.println("Begin Attract Mode");
+        initialGameStartTime = millis();
+
+        PlaySong(songTitleStringArray[20]);
+        //digitalWrite(playerOneSpotLight, HIGH);
+        //digitalWrite(playerTwoSpotLight, HIGH);
+
+        beginAttractModeSong = false;
+        activateSolenoidFlag = true;
+      }
+
+      ActivateSolenoids();
+      DeactivateSolenoids();
+
+      if(playSdWav1.isPlaying() == false)
+      {
+        digitalWrite(playerOneSpotLight, LOW);
+        digitalWrite(playerTwoSpotLight, LOW);
+
+        delay(100);
+
+        HandleGameEndAndReset();
+
+        attractMode = true;
+        attractModeNotificationFlag = true;
+        beginAttractModeSong = true;
+      }
+    }
 }
   
